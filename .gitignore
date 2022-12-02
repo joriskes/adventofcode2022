@@ -1,0 +1,6 @@
+composer.phar
+/vendor/
+.env
+/.idea/
+**/input.txt
+**/output.*
