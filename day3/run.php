@@ -29,34 +29,47 @@ foreach ($lines as $l) {
 }
 
 $part2 = 0;
-for($i=0; $i<count($lines); $i+=3) {
+$groupSize = 3;
+for($i=0; $i<count($lines); $i+=$groupSize) {
     $groups = [];
-    $groups[] = str_split($lines[$i]);
-    $groups[] = str_split($lines[$i+1]);
-    $groups[] = str_split($lines[$i+2]);
-
-    foreach ($groups as $index=>$group) {
-        sort($group);
-        $groups[$index] = $group;
+    // Grab, split and sort the groups
+    for($j=0; $j<$groupSize; $j++) {
+        $lineAr = str_split($lines[$i+$j]);
+        sort($lineAr);
+        $groups[] = $lineAr;
     }
 
     $found = false;
-    $a = array_shift($groups[0]);
-    $b = array_shift($groups[1]);
-    $c = array_shift($groups[2]);
+    $chrs = [];
+    // Shift the first char off each group
+    for($j=0; $j<$groupSize; $j++) {
+        $chrs[$j] = array_shift($groups[$j]);
+    }
+
+    // Search
     while(!$found) {
-        if($a === $b && $b === $c) {
-            $found = true;
-            $part2+= charScore($a);
-        } else {
-            if(ord($b) < ord($a)) {
-                $b = array_shift($groups[1]);
-            } else
-            if(ord($c) < ord($a)) {
-                $c = array_shift($groups[2]);
-            } else {
-                $a = array_shift($groups[0]);
+        $c = $chrs[0];
+        $found = true;
+        // See if we're done
+        for($j=0; $j<$groupSize; $j++) {
+            if($chrs[$j] !== $c) {
+                $found = false;
             }
+        }
+        if($found) {
+            // Done, tally score
+            $part2+= charScore($c);
+        } else {
+            // Not done, shift the lowest char code of the group
+            $lowest = 999;
+            $lowestIndex = -1;
+            for($j=0; $j<$groupSize; $j++) {
+                if(ord($chrs[$j]) < $lowest) {
+                    $lowest = ord($chrs[$j]);
+                    $lowestIndex = $j;
+                }
+            }
+            $chrs[$lowestIndex] = array_shift($groups[$lowestIndex]);
         }
     }
 }
