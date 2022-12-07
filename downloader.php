@@ -42,7 +42,7 @@ if(!file_exists('day'.$day.'/input.txt')) {
   $input = @file_get_contents($url, false, $context);
 
   if(!$input || empty($input)) {
-    p('Could not download input, are you too early?');
+    p('Could not download input, are you too early? Tried to download https://adventofcode.com/'.$_ENV['YEAR'].'/day/'.$day.'/input');
   } else {
     file_put_contents('day'.$day.'/input.txt', $input);
     if(!file_exists('day'.$day.'/run.php')) {
