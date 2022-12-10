@@ -9,6 +9,6 @@ Start by running `composer update` do download dependencies
 Copy `.env.example` to `.env` and set the environment variable called `AOC_SESSION` with the session cookie of
 adventofcode.com
 
-To advance a day you can use `php download.php <DAYNUMBER>` to download the puzzle input in its own directory. That will
-also copy `template.php` to the directory and name it `run.php`, you may freely change the template file to your own
-needs 
+To advance a day you can use `php downloader.php <DAYNUMBER>` to download the puzzle input in its own directory. That
+will also copy `template.php` to the directory and name it `run.php`, you may freely change the template file to your
+own needs 
