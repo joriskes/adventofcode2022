@@ -12,3 +12,6 @@ adventofcode.com
 To advance a day you can use `php downloader.php <DAYNUMBER>` to download the puzzle input in its own directory. That
 will also copy `template.php` to the directory and name it `run.php`, you may freely change the template file to your
 own needs 
+
+Output of day 14
+ ![image](https://user-images.githubusercontent.com/49513527/207609463-6184b24b-04ae-4f01-a8cb-28b633ec7717.png)
