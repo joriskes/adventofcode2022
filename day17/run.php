@@ -121,10 +121,8 @@ while (1) {
     }
     $activeJetIndex++;
     if ($activeJetIndex >= strlen($input)) {
-        echo "\n";
         $activeJetIndex = 0;
     }
-    echo '-' . $input[$activeJetIndex] . '-';
     $jet = $input[$activeJetIndex];
     if (($jet === '>') && !$rock->isCollision(1, 0, $room)) {
         $rock->x++;
