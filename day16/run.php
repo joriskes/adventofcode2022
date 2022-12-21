@@ -3,100 +3,153 @@ require __DIR__ . '/../bootstrap.php';
 
 $input = file_get_contents(__DIR__ . '/input.txt');
 
+
 class Valve
 {
-    private $label;
-    private $rate;
-    private $linkLabels;
-    private $links;
+    public $label;
+    public $rate;
+    public $links;
 
     public function __construct($label, $rate, $links)
     {
         $this->label = $label;
         $this->rate = $rate;
-        $this->linkLabels = $links;
-        $this->links = [];
+        $this->links = $links;
+    }
+}
+
+class Route
+{
+    public $unopenedValves;
+    public $time;
+    public $position;
+    public $totalPressure;
+
+    public function __construct($unopenedValves, $time = 30)
+    {
+        $this->unopenedValves = $unopenedValves;
+        $this->time = $time;
+        $this->position = 'AA';
+        $this->totalPressure = 0;
     }
 
-    public function __toString(): string
+    // Steps the distance and opens the valve (if needed)
+    public function step(Valve $valve, $distances)
     {
-        return 'V ' . $this->label . ' (' . $this->rate . ') -> ' . implode(',', $this->linkLabels);
+        $this->time -= $distances[$this->position][$valve->label] + 1;
+        if ($this->time < 1) {
+            return false;
+        }
+        unset($this->unopenedValves[$valve->label]);
+        $this->position = $valve->label;
+        $this->totalPressure += $valve->rate * $this->time;
+        return true;
     }
+}
 
-    public function linkUp($valves)
-    {
-        $this->links = [];
-        foreach ($this->linkLabels as $l) {
-            $this->links[$l] = $valves[$l];
+function getPressuredValves($valves)
+{
+    $openValves = [];
+    foreach ($valves as $key => $valve) {
+        if ($valve->rate > 0) {
+            $openValves[$key] = false;
         }
     }
+    return $openValves;
+}
 
-    // Simulates moves until time is left, starting on this
-    // Returns the predicted score and steps taken
-    public function simulateStep($timeLeft, $valvesWithNonZeroRate, $steps = [], $openedValves = [])
-    {
-        if ($timeLeft < 1 || count($openedValves) === $valvesWithNonZeroRate) {
-            return [0, $steps];
+// Return all permutations of the valves list split into two parts
+function splitTodo($todo, $valves, $result = [])
+{
+    $next = array_shift($valves);
+    // We need a split with at least 30% of valves on either side
+    $minimumValvesNeeded = floor(count($valves) / 3);
+    foreach ($todo as $k => $t) {
+        $t[] = $next;
+        $split = $todo;
+        $split[$k] = $t;
+        if ($valves) {
+            $result = splitTodo($split, $valves, $result);
+        } elseif (count($split[0]) > $minimumValvesNeeded && count($split[1]) > $minimumValvesNeeded) {
+            $result[] = $split;
         }
+    }
+    return $result;
+}
 
-        if (!isset($openedValves[$this->label]) && $this->rate > 0) {
-            // Simulate opening this, make that the baseline score to compare
-            $maxScore = $this->rate * $timeLeft;
-            [$s, $chosenMoves] = $this->simulateStep($timeLeft - 1, $valvesWithNonZeroRate, [...$steps, $this->label], [...$openedValves, $this->label => $this->rate * $timeLeft]);
-            $maxScore += $s;
-        } else {
-            $chosenMoves = [...$steps, $this->label];
-            $maxScore = 0;
-        }
-
-        // Simulate moving options
-        foreach ($this->linkLabels as $l) {
-
-            $skip = false;
-            // We can skip a step if we are moving from A to B and back to A
-            if (count($steps) > 1) {
-                if ($steps[count($steps) - 1] == $l) {
-                    $skip = true;
+// Calculate distances to all valves from every valve
+function calculateDistances($valves)
+{
+    $distances = [];
+    foreach ($valves as $valve) {
+        $targets = [];
+        $routes = array_map(function ($v) {
+            return [$v];
+        }, $valve->links);
+        while ($routes) {
+            $newRoutes = [];
+            foreach ($routes as $route) {
+                $targetValve = $route[count($route) - 1];
+                $targets[$targetValve] = count($route);
+                foreach ($valves[$targetValve]->links as $connection) {
+                    if (!isset($targets[$connection]) && $connection !== $valve->label) {
+                        $newRoute = $route;
+                        $newRoute[] = $connection;
+                        $newRoutes[] = $newRoute;
+                    }
                 }
             }
+            $routes = $newRoutes;
+        }
+        $distances[$valve->label] = $targets;
+    }
+    return $distances;
+}
 
-            if (!$skip) {
-                [$score, $newSteps] = $this->links[$l]->simulateStep($timeLeft - 1, $valvesWithNonZeroRate, [...$steps, $this->label], $openedValves);
-                if ($score > $maxScore) {
-                    $chosenMoves = $newSteps;
-                    $maxScore = $score;
+// Run each possible route and calculate pressure, return max over all routes
+function calculatePressure($valves, Route $route, $distances)
+{
+    $routes = [$route];
+    $max = 0;
+    while ($routes) {
+        $newRoutes = [];
+        foreach ($routes as $route) {
+            foreach ($route->unopenedValves as $valve => $tmp) {
+                $newRoute = (clone $route);
+                if ($newRoute->step($valves[$valve], $distances)) {
+                    $newRoutes[] = $newRoute;
+                    $max = max($max, $newRoute->totalPressure);
                 }
             }
         }
-        return [$maxScore, $chosenMoves];
+        $routes = $newRoutes;
     }
+    return $max;
 }
 
 $lines = input_to_lines($input);
 $valves = [];
-$startValve = null;
-$valvesWithNonZeroRate = 0;
 foreach ($lines as $line) {
-    preg_match_all('/Valve (\w\w) has flow rate=(\d+); tunnels? leads? to valves? (((\w\w)+,?\s?)+)/i', $line, $matches);
-    $label = $matches[1][0];
-    $rate = intval($matches[2][0]);
-    $links = explode(', ', $matches[3][0]);
-    $valves[$label] = new Valve($label, $rate, $links);
-    if ($rate > 0) $valvesWithNonZeroRate++;
+    if (preg_match('/^Valve ([A-Z]+) has flow rate=([0-9]+); tunnels? leads? to valves? (.*)$/i', $line, $matches)) {
+        $valves[$matches[1]] = new Valve($matches[1], $matches[2], explode(', ', $matches[3]));
+    }
 }
+// Precalculate distances between all nodes
+$distances = calculateDistances($valves);
 
-foreach ($valves as $valve) {
-    $valve->linkUp($valves);
-}
-
-$timeLeft = 29;
-[$score, $chosenMoves] = $valves['AA']->simulateStep($timeLeft, $valvesWithNonZeroRate);
-
-//p('Chosen moves: ' . implode(',', $chosenMoves));
-$part1 = $score;
-
+$unopenedValves = getPressuredValves($valves);
+$part1 = calculatePressure($valves, new Route($unopenedValves), $distances);
 p('Part 1: ' . $part1);
 
+$unopenedValves = array_keys(getPressuredValves($valves));
+$todo = splitTodo([array_splice($unopenedValves, 0, 1), []], $unopenedValves);
 
-
-//p('Part 2: ' . $part2);
+$max = 0;
+foreach ($todo as $i => list($p1Valves, $p2Valves)) {
+    $max = max($max,
+        calculatePressure($valves, new Route(array_flip($p1Valves), 26), $distances)
+        + calculatePressure($valves, new Route(array_flip($p2Valves), 26), $distances)
+    );
+}
+$part2 = $max;
+p('Part 2: ' . $part2);
