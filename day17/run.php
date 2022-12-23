@@ -5,7 +5,8 @@ $input = trim(file_get_contents(__DIR__ . '/input.txt'));
 // $input = '>>><<><>><<<>><>>><<<>>><<<><<<>><>><<>>';
 
 define("ROOMWIDTH", 7);
-define("NEEDEDROCKS", 2022);
+define("NEEDEDROCKS_PART1", 2022);
+define("NEEDEDROCKS_PART2", 1000000000000);
 
 class Rock
 {
@@ -108,15 +109,41 @@ $room[0] = implode(array_fill(0, ROOMWIDTH, '-'));
 
 $rockCounter = 0;
 $rock = new Rock();
-
 $activeJetIndex = -1;
+$part2Correction = 0;
+$cache = [];
 
 while (1) {
     if (!$rock->active) {
-        $rockCounter++;
-        if ($rockCounter > NEEDEDROCKS) {
+        $roomHeight = count($room) - 1;
+        if ($rockCounter === NEEDEDROCKS_PART1) {
+            $part1 = $roomHeight;
+        }
+        if ($rockCounter === NEEDEDROCKS_PART2) {
+            $part2 = $roomHeight + $part2Correction;
             break;
         }
+        // For part 2 we build a cache
+        $key = '';
+        for ($i = $roomHeight; $i > max(0, $roomHeight - 100); $i--) {
+            $key .= $room[$i];
+        }
+        $key = md5($key) . '-' . $rock->shapeIndex . '-' . $activeJetIndex;
+        if (isset($cache[$key])) {
+            // And if we find a colision we can step
+            $stepSize = $rockCounter - $cache[$key][1];
+            $roomIncrease = $roomHeight - $cache[$key][0];
+            while ($rockCounter < NEEDEDROCKS_PART2) {
+                $rockCounter += $stepSize;
+                $part2Correction += $roomIncrease;
+            }
+            // Do the last rocks manually again
+            $rockCounter -= $stepSize;
+            $part2Correction -= $roomIncrease;
+        } else {
+            $cache[$key] = [$roomHeight, $rockCounter];
+        }
+        $rockCounter++;
         $rock->next(2, count($room) + 3);
     }
     $activeJetIndex++;
@@ -138,6 +165,5 @@ while (1) {
     }
 }
 
-$part1 = count($room) - 1;
 p('Part 1: ' . $part1);
-//p('Part 2: ' . $part2);
+p('Part 2: ' . $part2);
